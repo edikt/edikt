@@ -1,0 +1,26 @@
+{
+  "name": "@edikt/sync",
+  "version": "0.0.0",
+  "description": "Sync engine for agent configuration files across tools",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun && tsc --emitDeclarationOnly --outDir dist",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@edikt/types": "workspace:*",
+    "@edikt/core": "workspace:*",
+    "chokidar": "^4.0.0"
+  }
+}

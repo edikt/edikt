@@ -1,0 +1,38 @@
+{
+  "name": "@edikt/cli",
+  "version": "0.0.0",
+  "description": "CLI for Edikt — the quality toolchain for AI agent configuration files",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "edikt": "./src/bin.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src/bin.ts"],
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun && tsc --emitDeclarationOnly --outDir dist",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@edikt/types": "workspace:*",
+    "@edikt/core": "workspace:*",
+    "@edikt/rules": "workspace:*",
+    "@edikt/fmt": "workspace:*",
+    "@edikt/init": "workspace:*",
+    "@edikt/sync": "workspace:*",
+    "@edikt/doctor": "workspace:*",
+    "@edikt/sdk": "workspace:*",
+    "commander": "^13.0.0",
+    "chalk": "^5.4.0",
+    "ora": "^8.1.0",
+    "@clack/prompts": "^0.9.0"
+  }
+}
