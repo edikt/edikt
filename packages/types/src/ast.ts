@@ -50,6 +50,7 @@ export interface SkillReference {
   name: string;
   path: string;
   location: Location;
+  exists?: boolean;
 }
 
 /** A section within an agent configuration file */
@@ -64,17 +65,25 @@ export interface Section {
 /** Metadata about an agent configuration file */
 export interface FileMetadata {
   filePath: string;
-  fileType: FileType;
-  frontmatter?: SkillFrontmatter;
   lineCount: number;
-  size: number;
+  wordCount: number;
+  characterCount: number;
+  hasProjectOverview: boolean;
+  hasStructureSection: boolean;
+  hasGuidelinesSection: boolean;
+  hasSkillsSection: boolean;
+  hasAutoInvokeSection: boolean;
+  hasScopedReferences: boolean;
 }
 
 /** Parsed AST representation of an agent configuration file */
 export interface AgentFileAST {
+  type: "agent-file";
+  fileType: FileType;
   metadata: FileMetadata;
   sections: Section[];
+  frontmatter?: SkillFrontmatter;
   autoInvokeTable?: AutoInvokeTable;
   skillReferences: SkillReference[];
-  raw: string;
+  scopedFileReferences: string[];
 }

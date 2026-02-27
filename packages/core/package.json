@@ -20,14 +20,13 @@
   },
   "dependencies": {
     "@edikt/types": "workspace:*",
-    "unified": "^11.0.0",
+    "@types/mdast": "^4",
+    "mdast-util-to-string": "^4.0.0",
+    "remark-frontmatter": "^5",
+    "remark-gfm": "^4",
     "remark-parse": "^11.0.0",
     "remark-stringify": "^11.0.0",
-    "mdast-util-to-string": "^4.0.0",
-    "unist-util-visit": "^5.0.0",
-    "gray-matter": "^4.0.0",
-    "fast-glob": "^3.3.0",
-    "lilconfig": "^3.1.0",
-    "jiti": "^2.4.0"
+    "unified": "^11.0.0",
+    "unist-util-visit": "^5.0.0"
   }
 }

@@ -1,0 +1,205 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ci:
+    name: Build, Typecheck, Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        id: build
+        run: |
+          echo '## Build' >> "$GITHUB_STEP_SUMMARY"
+          if bun run build 2>&1 | tee /tmp/build.log; then
+            echo 'build_status=success' >> "$GITHUB_OUTPUT"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -20 /tmp/build.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'build_status=failure' >> "$GITHUB_OUTPUT"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/build.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Typecheck
+        id: typecheck
+        if: always()
+        run: |
+          echo '## Typecheck' >> "$GITHUB_STEP_SUMMARY"
+          if bun run typecheck 2>&1 | tee /tmp/typecheck.log; then
+            echo 'typecheck_status=success' >> "$GITHUB_OUTPUT"
+            echo 'No errors found.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'typecheck_status=failure' >> "$GITHUB_OUTPUT"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/typecheck.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Lint
+        id: lint
+        if: always()
+        run: |
+          echo '## Lint' >> "$GITHUB_STEP_SUMMARY"
+          if bun run lint 2>&1 | tee /tmp/lint.log; then
+            echo 'lint_status=success' >> "$GITHUB_OUTPUT"
+            echo 'No issues found.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'lint_status=failure' >> "$GITHUB_OUTPUT"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/lint.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Test
+        id: test
+        if: always()
+        run: |
+          echo '## Test' >> "$GITHUB_STEP_SUMMARY"
+          if bun run test 2>&1 | tee /tmp/test.log; then
+            echo 'test_status=success' >> "$GITHUB_OUTPUT"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -10 /tmp/test.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'test_status=failure' >> "$GITHUB_OUTPUT"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/test.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Comment on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            function readLog(path) {
+              try { return fs.readFileSync(path, 'utf8').trim(); }
+              catch { return 'Step did not run.'; }
+            }
+
+            const buildStatus = '${{ steps.build.outcome }}';
+            const typecheckStatus = '${{ steps.typecheck.outcome }}';
+            const lintStatus = '${{ steps.lint.outcome }}';
+            const testStatus = '${{ steps.test.outcome }}';
+
+            const icon = (s) => s === 'success' ? '✅' : s === 'failure' ? '❌' : '⏭️';
+
+            const buildLog = readLog('/tmp/build.log');
+            const typecheckLog = readLog('/tmp/typecheck.log');
+            const lintLog = readLog('/tmp/lint.log');
+            const testLog = readLog('/tmp/test.log');
+
+            // Extract test summary line (last meaningful line)
+            const testSummary = testLog.split('\n').filter(l => l.includes('pass') || l.includes('fail')).pop() || '';
+
+            const body = [
+              `## CI Report`,
+              ``,
+              `| Check | Status |`,
+              `|-------|--------|`,
+              `| Build | ${icon(buildStatus)} ${buildStatus} |`,
+              `| Typecheck | ${icon(typecheckStatus)} ${typecheckStatus} |`,
+              `| Lint | ${icon(lintStatus)} ${lintStatus} |`,
+              `| Test | ${icon(testStatus)} ${testStatus} |`,
+              ``,
+            ];
+
+            if (buildStatus === 'failure') {
+              body.push(
+                `### Build Errors`,
+                '```',
+                buildLog.slice(-3000),
+                '```',
+                '',
+              );
+            }
+
+            if (typecheckStatus === 'failure') {
+              body.push(
+                `### Typecheck Errors`,
+                '```',
+                typecheckLog.slice(-3000),
+                '```',
+                '',
+              );
+            }
+
+            if (lintStatus === 'failure') {
+              body.push(
+                `### Lint Errors`,
+                '```',
+                lintLog.slice(-3000),
+                '```',
+                '',
+              );
+            }
+
+            if (testStatus === 'failure') {
+              body.push(
+                `### Test Failures`,
+                '```',
+                testLog.slice(-3000),
+                '```',
+                '',
+              );
+            }
+
+            if (testStatus === 'success' && testSummary) {
+              body.push(`**Tests:** ${testSummary}`, '');
+            }
+
+            body.push(`*Run: [${context.runId}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})*`);
+
+            // Find and update existing comment, or create new one
+            const marker = '## CI Report';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c =>
+              c.user?.login === 'github-actions[bot]' && c.body?.includes(marker)
+            );
+
+            const commentBody = body.join('\n');
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody,
+              });
+            }
